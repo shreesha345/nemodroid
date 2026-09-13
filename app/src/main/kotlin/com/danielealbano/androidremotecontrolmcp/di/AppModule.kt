@@ -45,6 +45,8 @@ import com.danielealbano.androidremotecontrolmcp.services.channel.EventDispatche
 import com.danielealbano.androidremotecontrolmcp.services.channel.EventDispatcherImpl
 import com.danielealbano.androidremotecontrolmcp.services.intents.IntentDispatcher
 import com.danielealbano.androidremotecontrolmcp.services.intents.IntentDispatcherImpl
+import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerStatusProvider
+import com.danielealbano.androidremotecontrolmcp.services.mcp.McpServerStatusProviderImpl
 import com.danielealbano.androidremotecontrolmcp.services.notifications.NotificationProvider
 import com.danielealbano.androidremotecontrolmcp.services.notifications.NotificationProviderImpl
 import com.danielealbano.androidremotecontrolmcp.services.screencapture.ApiLevelProvider
@@ -295,4 +297,8 @@ abstract class ServiceModule {
     @Binds
     @Singleton
     abstract fun bindUpdateNotifier(impl: UpdateNotifierImpl): UpdateNotifier
+
+    @Binds
+    @Singleton
+    abstract fun bindMcpServerStatusProvider(impl: McpServerStatusProviderImpl): McpServerStatusProvider
 }

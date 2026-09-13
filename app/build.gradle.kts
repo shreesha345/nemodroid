@@ -399,6 +399,8 @@ dependencies {
 
     // MCP SDK
     implementation(libs.mcp.kotlin.sdk.server)
+    implementation(libs.mcp.kotlin.sdk.client)
+    implementation(libs.ktor.sse)
     runtimeOnly(libs.slf4j.android)
 
     // OAuth (JWT signing/verification)
@@ -447,9 +449,7 @@ dependencies {
     testImplementation(libs.bouncy.castle.pkix)
     testImplementation(libs.bouncy.castle.prov)
     testImplementation(libs.ktor.server.test.host)
-    testImplementation(libs.mcp.kotlin.sdk.client)
     testImplementation(libs.ktor.client.content.negotiation)
-    testImplementation(libs.ktor.sse)
 }
 
 dependencies {
