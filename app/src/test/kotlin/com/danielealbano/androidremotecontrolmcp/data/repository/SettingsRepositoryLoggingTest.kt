@@ -61,6 +61,7 @@ class SettingsRepositoryLoggingTest {
                 dataStore,
                 changeLogger,
                 EventChannelSettingsImpl(dataStore, changeLogger),
+                AgentSettingsImpl(dataStore, changeLogger),
             )
     }
 

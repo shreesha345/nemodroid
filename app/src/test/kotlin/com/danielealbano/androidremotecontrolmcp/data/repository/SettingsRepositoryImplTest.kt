@@ -81,6 +81,7 @@ class SettingsRepositoryImplTest {
                 dataStore,
                 changeLogger,
                 EventChannelSettingsImpl(dataStore, changeLogger),
+                AgentSettingsImpl(dataStore, changeLogger),
             )
     }
 
@@ -1700,4 +1701,15 @@ class SettingsRepositoryImplTest {
                 assertTrue(repository.privacyModeCardDismissed.first())
             }
     }
+
+    @Test
+    fun `agentConfig is delegated to the agent settings slice`() =
+        testScope.runTest {
+            repository.updateAgentLlmModel("delegated-model")
+            repository.updateAgentMaxSteps(7)
+
+            val config = repository.agentConfig.first()
+            assertEquals("delegated-model", config.llmModel)
+            assertEquals(7, config.maxSteps)
+        }
 }

@@ -231,8 +231,10 @@ class SettingsRepositoryImpl
         private val dataStore: DataStore<Preferences>,
         private val settingsChangeLogger: SettingsChangeLogger,
         eventChannelSettings: EventChannelSettings,
+        agentSettings: AgentSettings,
     ) : SettingsRepository,
-        EventChannelSettings by eventChannelSettings {
+        EventChannelSettings by eventChannelSettings,
+        AgentSettings by agentSettings {
         override val serverConfig: Flow<ServerConfig> =
             dataStore.data.map { prefs ->
                 mapPreferencesToServerConfig(prefs)

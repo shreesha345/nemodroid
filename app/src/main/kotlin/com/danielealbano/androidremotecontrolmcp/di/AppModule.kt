@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
+import com.danielealbano.androidremotecontrolmcp.data.repository.AgentSettings
+import com.danielealbano.androidremotecontrolmcp.data.repository.AgentSettingsImpl
 import com.danielealbano.androidremotecontrolmcp.data.repository.EventChannelSettings
 import com.danielealbano.androidremotecontrolmcp.data.repository.EventChannelSettingsImpl
 import com.danielealbano.androidremotecontrolmcp.data.repository.OAuthClientRepository
@@ -155,6 +157,11 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindEventChannelSettings(impl: EventChannelSettingsImpl): EventChannelSettings
+
+    /** Binds the on-device agent settings slice that [SettingsRepositoryImpl] delegates to. */
+    @Binds
+    @Singleton
+    abstract fun bindAgentSettings(impl: AgentSettingsImpl): AgentSettings
 
     /** Binds the persisted OAuth client registry. */
     @Binds
