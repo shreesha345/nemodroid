@@ -127,19 +127,32 @@ class OpenAiCompatibleLlmClientTest {
             val response = client.complete(endpoint, messages, emptyList()).getOrThrow()
 
             assertEquals("tap_node", response.toolCalls.single().name)
-            assertEquals("n1", response.toolCalls.single().arguments.getValue("node_id").jsonPrimitive.content)
+            assertEquals(
+                "n1",
+                response.toolCalls
+                    .single()
+                    .arguments
+                    .getValue("node_id")
+                    .jsonPrimitive.content,
+            )
         }
 
     @Test
     fun `falls back to schema aware text tool calls when structured calls absent`() =
         runTest {
-            val content = "Tapping.\n<tool_call>\n<function=tap_node>\n<parameter=node_id>\n123\n</parameter>\n" +
-                "</function>\n</tool_call>"
+            val content =
+                "Tapping.\n<tool_call>\n<function=tap_node>\n<parameter=node_id>\n123\n</parameter>\n" +
+                    "</function>\n</tool_call>"
             val client = clientWith { respond(chatBody(content), HttpStatusCode.OK, jsonHeaders) }
 
             val response = client.complete(endpoint, messages, listOf(tapNodeTool)).getOrThrow()
 
-            val nodeId = response.toolCalls.single().arguments.getValue("node_id").jsonPrimitive
+            val nodeId =
+                response.toolCalls
+                    .single()
+                    .arguments
+                    .getValue("node_id")
+                    .jsonPrimitive
             assertTrue(nodeId.isString)
             assertEquals("123", nodeId.content)
             assertEquals("Tapping.", response.text)
@@ -161,7 +174,12 @@ class OpenAiCompatibleLlmClientTest {
         runTest {
             val client = clientWith { respond("x".repeat(1_000), HttpStatusCode.ServiceUnavailable) }
 
-            val message = client.complete(endpoint, messages, emptyList()).exceptionOrNull()?.message.orEmpty()
+            val message =
+                client
+                    .complete(endpoint, messages, emptyList())
+                    .exceptionOrNull()
+                    ?.message
+                    .orEmpty()
 
             assertTrue(message.contains("503"))
             assertTrue(message.contains("x".repeat(300)))
@@ -209,7 +227,12 @@ class OpenAiCompatibleLlmClientTest {
         runTest {
             val client = clientWith { throw IllegalStateException("engine closed") }
 
-            val message = client.complete(endpoint, messages, emptyList()).exceptionOrNull()?.message.orEmpty()
+            val message =
+                client
+                    .complete(endpoint, messages, emptyList())
+                    .exceptionOrNull()
+                    ?.message
+                    .orEmpty()
 
             assertTrue(message.startsWith("LLM request failed"))
             assertFalse(message.contains("Invalid LLM endpoint URL"))

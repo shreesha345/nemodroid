@@ -12,8 +12,7 @@ data class LlmEndpoint(
     val model: String,
 ) {
     /** Masks [apiKey] so the key never reaches logs through string interpolation. */
-    override fun toString(): String =
-        "LlmEndpoint(baseUrl=$baseUrl, apiKey=${if (apiKey.isEmpty()) "" else "***"}, model=$model)"
+    override fun toString(): String = "LlmEndpoint(baseUrl=$baseUrl, apiKey=${if (apiKey.isEmpty()) "" else "***"}, model=$model)"
 }
 
 /** Base64-encoded image attached to a user message. */

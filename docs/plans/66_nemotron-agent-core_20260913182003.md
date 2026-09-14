@@ -26,10 +26,10 @@ Headless core of an on-device agent that drives this app's own MCP tools with a 
 Agent settings form a `SettingsRepository` slice delegated to `AgentSettingsImpl`, mirroring `EventChannelSettings`, keeping `SettingsRepositoryImpl` within detekt's `LargeClass` budget.
 
 **Acceptance criteria**
-- [ ] `SettingsRepository.agentConfig` emits defaults (`""`, `""`, `nemotron-3-nano-omni`, `true`, `30`) on a fresh DataStore
-- [ ] Each `updateAgent*` persists its value and is observable via `agentConfig` / `getAgentConfig()`
-- [ ] `validateAgentLlmBaseUrl` accepts only http(s) URLs with a host (including hostnames `java.net.URI` treats as registry-based, e.g. `gpu_box`) and no embedded credentials; `validateAgentLlmModel` accepts 1–200 chars (trimmed); `validateAgentMaxSteps` accepts 1–100
-- [ ] Settings change log never contains the base URL or API key values; `AgentConfig.toString()` masks the API key
+- [x] `SettingsRepository.agentConfig` emits defaults (`""`, `""`, `nemotron-3-nano-omni`, `true`, `30`) on a fresh DataStore
+- [x] Each `updateAgent*` persists its value and is observable via `agentConfig` / `getAgentConfig()`
+- [x] `validateAgentLlmBaseUrl` accepts only http(s) URLs with a host (including hostnames `java.net.URI` treats as registry-based, e.g. `gpu_box`) and no embedded credentials; `validateAgentLlmModel` accepts 1–200 chars (trimmed); `validateAgentMaxSteps` accepts 1–100
+- [x] Settings change log never contains the base URL or API key values; `AgentConfig.toString()` masks the API key
 
 ### Task 1.1: Agent settings model and slice
 
@@ -319,8 +319,8 @@ File `app/src/testGms/kotlin/com/danielealbano/androidremotecontrolmcp/data/repo
 ```
 
 **Definition of Done**
-- [ ] `AgentSettings` slice implemented, bound in Hilt, delegated by `SettingsRepositoryImpl`
-- [ ] All existing `SettingsRepositoryImpl` constructions compile with the new parameter
+- [x] `AgentSettings` slice implemented, bound in Hilt, delegated by `SettingsRepositoryImpl`
+- [x] All existing `SettingsRepositoryImpl` constructions compile with the new parameter
 
 ### Task 1.2: Tests — agent settings
 
@@ -359,7 +359,7 @@ File `app/src/testGms/kotlin/com/danielealbano/androidremotecontrolmcp/data/repo
 | `agentConfig is delegated to the agent settings slice` | Update through repository is visible through `SettingsRepository.agentConfig` |
 
 **Definition of Done**
-- [ ] Tests above exist
+- [x] Tests above exist
 
 ---
 
@@ -368,12 +368,12 @@ File `app/src/testGms/kotlin/com/danielealbano/androidremotecontrolmcp/data/repo
 Any OpenAI-compatible server works; `llama-server --jinja` returns structured `tool_calls` for Nemotron 3 through its schema-aware Qwen3-Coder parser, and the text fallback covers servers that return the call as plain text in the model's native format.
 
 **Acceptance criteria**
-- [ ] Requests are `POST {baseUrl}/chat/completions` with model, temperature, messages, and tools (omitted when empty); `Authorization: Bearer` only when an API key is set
-- [ ] User messages with an image are sent as `text` + `image_url` data-URI parts; assistant messages always carry string `content`
-- [ ] Structured `tool_calls` (string or object arguments) are parsed; `tool_calls: null` means no calls; array `content` text parts are joined; empty content is null
-- [ ] Without structured calls, text calls are parsed: Nemotron/Qwen3-Coder XML (`<tool_call><function=…><parameter=…>`, tagged or untagged), JSON inside `<tool_call>`, bare/fenced JSON object or array; XML parameter values follow the tool schema type (string-typed values stay strings); text before the last `</think>` is ignored; every parsed call is removed from the returned text
-- [ ] Any request failure (unparsable URL, non-2xx, network, malformed response, unexpected exception) returns `Result.failure(LlmException)` with a message naming the actual cause; cancellation and `Error`s propagate
-- [ ] `LlmEndpoint.toString()` masks the API key
+- [x] Requests are `POST {baseUrl}/chat/completions` with model, temperature, messages, and tools (omitted when empty); `Authorization: Bearer` only when an API key is set
+- [x] User messages with an image are sent as `text` + `image_url` data-URI parts; assistant messages always carry string `content`
+- [x] Structured `tool_calls` (string or object arguments) are parsed; `tool_calls: null` means no calls; array `content` text parts are joined; empty content is null
+- [x] Without structured calls, text calls are parsed: Nemotron/Qwen3-Coder XML (`<tool_call><function=…><parameter=…>`, tagged or untagged), JSON inside `<tool_call>`, bare/fenced JSON object or array; XML parameter values follow the tool schema type (string-typed values stay strings); text before the last `</think>` is ignored; every parsed call is removed from the returned text
+- [x] Any request failure (unparsable URL, non-2xx, network, malformed response, unexpected exception) returns `Result.failure(LlmException)` with a message naming the actual cause; cancellation and `Error`s propagate
+- [x] `LlmEndpoint.toString()` masks the API key
 
 ### Task 2.1: LLM domain model and codec
 
@@ -734,7 +734,7 @@ internal object ToolCallTextParser {
 ```
 
 **Definition of Done**
-- [ ] Model, codec, and text parser created
+- [x] Model, codec, and text parser created
 
 ### Task 2.2: HTTP client
 
@@ -910,7 +910,7 @@ abstract class AgentModule {
 ```
 
 **Definition of Done**
-- [ ] `LlmClient` implemented and bound
+- [x] `LlmClient` implemented and bound
 
 ### Task 2.3: Tests — LLM client
 
@@ -998,7 +998,7 @@ abstract class AgentModule {
 | `propagates cancellation` | MockEngine suspends; cancelling the caller throws `CancellationException`, not a failure result |
 
 **Definition of Done**
-- [ ] Tests above exist
+- [x] Tests above exist
 
 ---
 
@@ -1007,12 +1007,12 @@ abstract class AgentModule {
 Loopback keeps the agent subject to the same tool permissions, Privacy Mode gate, untrusted-content warnings, logging, and tool-call indicator as external MCP clients, instead of calling tool handlers in-process.
 
 **Acceptance criteria**
-- [ ] `open()` fails with an actionable message when the MCP server is not running, runs HTTPS, has bearer enabled with an empty token, has bearer disabled while OAuth is enabled, or `get_screen_state` is disabled
-- [ ] `open()` connects to `http://127.0.0.1:<ServerStatus.Running.port>/mcp`, sending the bearer token only when bearer auth is enabled, and returns only enabled `AgentToolProfile` tools, un-prefixed, as JSON-Schema function definitions (device slug prefix honored)
-- [ ] `open()` returns a failure (never throws) for connection errors and timeouts unless the caller itself is cancelled
-- [ ] `call()` forwards to the prefixed MCP tool with the model's JSON arguments and the tool request timeout (90 s), and maps text, first image, and `isError`; tools not listed in the open session, or calls without a session, return error results without network I/O; caller cancellation propagates
-- [ ] A `close()` during an in-flight `call()` aborts that call promptly with an error result without cancelling the caller
-- [ ] `close()` is idempotent and always releases the MCP client and HTTP client, including when `open()` is cancelled
+- [x] `open()` fails with an actionable message when the MCP server is not running, runs HTTPS, has bearer enabled with an empty token, has bearer disabled while OAuth is enabled, or `get_screen_state` is disabled
+- [x] `open()` connects to `http://127.0.0.1:<ServerStatus.Running.port>/mcp`, sending the bearer token only when bearer auth is enabled, and returns only enabled `AgentToolProfile` tools, un-prefixed, as JSON-Schema function definitions (device slug prefix honored)
+- [x] `open()` returns a failure (never throws) for connection errors and timeouts unless the caller itself is cancelled
+- [x] `call()` forwards to the prefixed MCP tool with the model's JSON arguments and the tool request timeout (90 s), and maps text, first image, and `isError`; tools not listed in the open session, or calls without a session, return error results without network I/O; caller cancellation propagates
+- [x] A `close()` during an in-flight `call()` aborts that call promptly with an error result without cancelling the caller
+- [x] `close()` is idempotent and always releases the MCP client and HTTP client, including when `open()` is cancelled
 
 ### Task 3.1: Dependencies and status access
 
@@ -1074,7 +1074,7 @@ class McpServerStatusProviderImpl
 ```
 
 **Definition of Done**
-- [ ] MCP client available on the main classpath; status provider created and bound
+- [x] MCP client available on the main classpath; status provider created and bound
 
 ### Task 3.2: Bridge
 
@@ -1433,7 +1433,7 @@ class LoopbackMcpToolBridge
 ```
 
 **Definition of Done**
-- [ ] Bridge implemented and bound
+- [x] Bridge implemented and bound
 
 ### Task 3.3: Tests — tool bridge
 
@@ -1495,7 +1495,7 @@ class LoopbackMcpToolBridge
 | `close is idempotent and releases http client` | Two `close()` calls; provider invoked once and client released; subsequent `call` → error |
 
 **Definition of Done**
-- [ ] Tests above exist
+- [x] Tests above exist
 
 ---
 
@@ -1504,14 +1504,14 @@ class LoopbackMcpToolBridge
 The runner owns the observe → decide → act loop so the hosting service (Plan 67) only starts, cancels, and observes runs.
 
 **Acceptance criteria**
-- [ ] A run observes the screen (screenshot per `sendScreenshot`), asks the LLM, executes one tool call per step, and after successful non-observation actions waits for idle (or pauses 1.5 s when `wait_for_idle` is disabled)
-- [ ] When observing with a screenshot fails, the observation is retried once without a screenshot and the model is told the screenshot is unavailable
-- [ ] A successful model-requested `get_screen_state` result (e.g. a cursor page) becomes the next observation instead of a fresh capture, so snapshot cursors stay valid; its tool result is a short placeholder
-- [ ] Screen text is truncated at a line boundary to at most 16 000 chars with a marker pointing to `find_nodes`, keeping the pagination note when it fits; only the latest observation carries screenshot and screen text
-- [ ] History stays bounded: tool results (≤4 000 chars) and assistant thoughts beyond the last 3 steps are replaced by placeholders in batches; thoughts drop text before `</think>` and are capped at 1 000 chars
-- [ ] A run ends `Finished` on `finish`; `Failed` on missing endpoint, bridge open failure, settings read failure, unrecoverable screen read error, LLM failure, unexpected `IllegalStateException`, 3 consecutive replies without a tool call, or step limit; `Cancelled` on coroutine cancellation
-- [ ] Three identical consecutive actions add a change-approach hint to the next observation; tool call ids are unique across the conversation
-- [ ] A second `run` while one is active is ignored; the tool session is closed on every terminal state
+- [x] A run observes the screen (screenshot per `sendScreenshot`), asks the LLM, executes one tool call per step, and after successful non-observation actions waits for idle (or pauses 1.5 s when `wait_for_idle` is disabled)
+- [x] When observing with a screenshot fails, the observation is retried once without a screenshot and the model is told the screenshot is unavailable
+- [x] A successful model-requested `get_screen_state` result (e.g. a cursor page) becomes the next observation instead of a fresh capture, so snapshot cursors stay valid; its tool result is a short placeholder
+- [x] Screen text is truncated at a line boundary to at most 16 000 chars with a marker pointing to `find_nodes`, keeping the pagination note when it fits; only the latest observation carries screenshot and screen text
+- [x] History stays bounded: tool results (≤4 000 chars) and assistant thoughts beyond the last 3 steps are replaced by placeholders in batches; thoughts drop text before `</think>` and are capped at 1 000 chars
+- [x] A run ends `Finished` on `finish`; `Failed` on missing endpoint, bridge open failure, settings read failure, unrecoverable screen read error, LLM failure, unexpected `IllegalStateException`, 3 consecutive replies without a tool call, or step limit; `Cancelled` on coroutine cancellation
+- [x] Three identical consecutive actions add a change-approach hint to the next observation; tool call ids are unique across the conversation
+- [x] A second `run` while one is active is ignored; the tool session is closed on every terminal state
 
 ### Task 4.1: Runner
 
@@ -2012,7 +2012,7 @@ class AgentRunnerImpl
 ```
 
 **Definition of Done**
-- [ ] Runner implemented and bound
+- [x] Runner implemented and bound
 
 ### Task 4.2: Tests — runner
 
@@ -2072,7 +2072,7 @@ class AgentRunnerImpl
 | `concurrent run is ignored` | Second `run` returns immediately while first suspended; LLM invoked once |
 
 **Definition of Done**
-- [ ] Tests above exist
+- [x] Tests above exist
 
 ---
 
@@ -2081,7 +2081,7 @@ class AgentRunnerImpl
 The agent introduces a fourth component, a production use of the MCP client, and an accepted prompt-injection risk that the project docs must record for later plans.
 
 **Acceptance criteria**
-- [ ] `docs/PROJECT.md` and `docs/ARCHITECTURE.md` describe the agent core, its loopback preconditions, new folders, defaults, threading, and the stop/kill requirement, with no statement left contradicting them
+- [x] `docs/PROJECT.md` and `docs/ARCHITECTURE.md` describe the agent core, its loopback preconditions, new folders, defaults, threading, and the stop/kill requirement, with no statement left contradicting them
 
 ### Task 5.1: Project docs
 
@@ -2214,7 +2214,7 @@ The agent introduces a fourth component, a production use of the MCP client, and
 ```
 
 **Definition of Done**
-- [ ] Docs updated; no Mermaid diagrams added or changed
+- [x] Docs updated; no Mermaid diagrams added or changed
 
 ---
 
@@ -2222,9 +2222,9 @@ The agent introduces a fourth component, a production use of the MCP client, and
 
 Run from WSL in `/mnt/d/Coding/Nivida-hackathon/nemodroid` with the toolchain environment loaded.
 
-- [ ] `make lint` passes with no warnings
-- [ ] `make test-unit` passes (unit + JVM integration)
-- [ ] `make build` succeeds with no warnings
+- [x] `make lint` passes with no warnings
+- [x] `make test-unit` passes (unit + JVM integration)
+- [x] `make build` succeeds with no warnings
 - [ ] `code-reviewer` subagent in plan compliance mode reports no findings
 
 ---

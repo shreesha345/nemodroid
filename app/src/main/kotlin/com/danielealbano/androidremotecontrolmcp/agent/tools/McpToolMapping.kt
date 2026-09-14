@@ -20,14 +20,26 @@ internal fun loopbackPreconditionError(
     config: ServerConfig,
 ): String? =
     when {
-        status !is ServerStatus.Running -> "Start the MCP server before running the agent"
+        status !is ServerStatus.Running -> {
+            "Start the MCP server before running the agent"
+        }
+
         // McpServerService does not populate Running.httpsEnabled, so the persisted config is checked as well.
-        status.httpsEnabled || config.httpsEnabled -> "The on-device agent needs the MCP server on HTTP; disable HTTPS"
-        config.bearerTokenEnabled && config.bearerToken.isEmpty() ->
+        status.httpsEnabled || config.httpsEnabled -> {
+            "The on-device agent needs the MCP server on HTTP; disable HTTPS"
+        }
+
+        config.bearerTokenEnabled && config.bearerToken.isEmpty() -> {
             "Set a bearer token in Access settings so the on-device agent can connect"
-        !config.bearerTokenEnabled && config.oauthEnabled ->
+        }
+
+        !config.bearerTokenEnabled && config.oauthEnabled -> {
             "Enable bearer token authentication so the on-device agent can connect"
-        else -> null
+        }
+
+        else -> {
+            null
+        }
     }
 
 /** Model-facing definition for a profile tool, or null when [Tool.name] is not a profile tool under [prefix]. */
@@ -54,4 +66,8 @@ internal fun CallToolResult.toAgentResult(): AgentToolResult =
     )
 
 internal fun agentToolError(message: String): AgentToolResult =
-    AgentToolResult(text = message, image = null, isError = true)
+    AgentToolResult(
+        text = message,
+        image = null,
+        isError = true,
+    )

@@ -90,28 +90,36 @@ class AgentRunnerImplTest {
     private fun failure(text: String): AgentToolResult = AgentToolResult(text = text, image = null, isError = true)
 
     private fun screenResult(text: String): AgentToolResult =
-        AgentToolResult(text = text, image = image, isError = false)
+        AgentToolResult(
+            text = text,
+            image = image,
+            isError = false,
+        )
 
     private fun callOf(
         name: String,
         arguments: JsonObject = JsonObject(emptyMap()),
     ): Result<LlmResponse> =
-        Result.success(LlmResponse(text = null, toolCalls = listOf(LlmToolCall("c", name, arguments))))
+        Result.success(
+            LlmResponse(text = null, toolCalls = listOf(LlmToolCall("c", name, arguments))),
+        )
 
     private fun finish(summary: String = "Done"): Result<LlmResponse> =
         callOf(AgentPrompts.FINISH_TOOL, buildJsonObject { put("summary", summary) })
 
     /** Answers LLM requests in order, recording the messages each request carried. */
-    private fun llmReplies(vararg replies: Result<LlmResponse>) {
-        val queue = ArrayDeque(replies.toList())
+    private fun llmReplies(replies: List<Result<LlmResponse>>) {
+        val queue = ArrayDeque(replies)
         coEvery { llmClient.complete(any(), any(), any()) } coAnswers {
             capturedMessages += secondArg<List<LlmMessage>>()
             queue.removeFirst()
         }
     }
 
-    private fun includeScreenshot(arguments: JsonObject): Boolean? =
-        arguments["include_screenshot"]?.jsonPrimitive?.boolean
+    private fun includeScreenshot(arguments: JsonObject): Boolean? {
+        val value = arguments["include_screenshot"] ?: return null
+        return value.jsonPrimitive.boolean
+    }
 
     @Test
     fun `fails without opening bridge when endpoint blank`() =
@@ -163,7 +171,7 @@ class AgentRunnerImplTest {
     @Test
     fun `finishes on finish tool with summary`() =
         runTest {
-            llmReplies(finish("All set"))
+            llmReplies(listOf(finish("All set")))
 
             runner.run("goal")
 
@@ -175,7 +183,7 @@ class AgentRunnerImplTest {
     @Test
     fun `executes action then waits for idle then finishes`() =
         runTest {
-            llmReplies(callOf("tap"), finish())
+            llmReplies(listOf(callOf("tap"), finish()))
 
             runner.run("goal")
 
@@ -191,7 +199,7 @@ class AgentRunnerImplTest {
     fun `pauses instead of wait_for_idle when tool not in session`() =
         runTest {
             coEvery { toolBridge.open() } returns Result.success(listOf(screenDefinition, tapDefinition))
-            llmReplies(callOf("tap"), finish())
+            llmReplies(listOf(callOf("tap"), finish()))
 
             runner.run("goal")
 
@@ -204,7 +212,7 @@ class AgentRunnerImplTest {
     fun `does not wait for idle after failed action`() =
         runTest {
             coEvery { toolBridge.call("tap", any()) } returns failure("gesture rejected")
-            llmReplies(callOf("tap"), finish())
+            llmReplies(listOf(callOf("tap"), finish()))
 
             runner.run("goal")
 
@@ -215,7 +223,7 @@ class AgentRunnerImplTest {
     @Test
     fun `does not wait for idle after get_screen_state action`() =
         runTest {
-            llmReplies(callOf(AgentToolProfile.GET_SCREEN_STATE), finish())
+            llmReplies(listOf(callOf(AgentToolProfile.GET_SCREEN_STATE), finish()))
 
             runner.run("goal")
 
@@ -225,7 +233,7 @@ class AgentRunnerImplTest {
     @Test
     fun `requests screenshot according to config`() =
         runTest {
-            llmReplies(finish(), finish())
+            llmReplies(listOf(finish(), finish()))
 
             runner.run("with screenshot")
             coEvery { settingsRepository.getAgentConfig() } returns
@@ -247,11 +255,16 @@ class AgentRunnerImplTest {
             coEvery {
                 toolBridge.call(AgentToolProfile.GET_SCREEN_STATE, match { includeScreenshot(it) == false })
             } returns ok("node list only")
-            llmReplies(finish())
+            llmReplies(listOf(finish()))
 
             runner.run("goal")
 
-            val observation = capturedMessages.single().filterIsInstance<LlmMessage.User>().last().text
+            val observation =
+                capturedMessages
+                    .single()
+                    .filterIsInstance<LlmMessage.User>()
+                    .last()
+                    .text
             assertTrue(observation.contains(AgentPrompts.SCREENSHOT_UNAVAILABLE))
             assertTrue(observation.contains("node list only"))
             assertTrue(runner.state.value is AgentRunState.Finished)
@@ -290,7 +303,7 @@ class AgentRunnerImplTest {
             coEvery {
                 toolBridge.call(AgentToolProfile.GET_SCREEN_STATE, match { "cursor" in it })
             } returns ok("page two nodes")
-            llmReplies(callOf(AgentToolProfile.GET_SCREEN_STATE, cursor), finish())
+            llmReplies(listOf(callOf(AgentToolProfile.GET_SCREEN_STATE, cursor), finish()))
 
             runner.run("goal")
 
@@ -302,7 +315,7 @@ class AgentRunnerImplTest {
     @Test
     fun `fails when llm request fails`() =
         runTest {
-            llmReplies(Result.failure(LlmException("LLM endpoint returned HTTP 503: busy")))
+            llmReplies(listOf(Result.failure(LlmException("LLM endpoint returned HTTP 503: busy"))))
 
             runner.run("goal")
 
@@ -314,7 +327,7 @@ class AgentRunnerImplTest {
     fun `fails after three replies without tool calls`() =
         runTest {
             val noCall = Result.success(LlmResponse(text = "thinking", toolCalls = emptyList()))
-            llmReplies(noCall, noCall, noCall)
+            llmReplies(listOf(noCall, noCall, noCall))
 
             runner.run("goal")
 
@@ -328,7 +341,12 @@ class AgentRunnerImplTest {
         runTest {
             coEvery { settingsRepository.getAgentConfig() } returns
                 AgentConfig(llmBaseUrl = "http://h/v1", maxSteps = 2)
-            llmReplies(callOf("tap", buildJsonObject { put("x", 1) }), callOf("tap", buildJsonObject { put("x", 2) }))
+            llmReplies(
+                listOf(
+                    callOf("tap", buildJsonObject { put("x", 1) }),
+                    callOf("tap", buildJsonObject { put("x", 2) }),
+                ),
+            )
 
             runner.run("goal")
 
@@ -363,7 +381,7 @@ class AgentRunnerImplTest {
     @Test
     fun `sends only latest screenshot to llm`() =
         runTest {
-            llmReplies(callOf("tap"), finish())
+            llmReplies(listOf(callOf("tap"), finish()))
 
             runner.run("goal")
 
@@ -387,7 +405,7 @@ class AgentRunnerImplTest {
     @Test
     fun `cancellation during tool call publishes cancelled`() =
         runTest {
-            llmReplies(callOf("tap"))
+            llmReplies(listOf(callOf("tap")))
             coEvery { toolBridge.call("tap", any()) } coAnswers { awaitCancellation() }
 
             val job = launch { runner.run("goal") }

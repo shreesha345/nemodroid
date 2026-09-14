@@ -19,6 +19,8 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.net.URI
+import java.net.URISyntaxException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -64,22 +66,33 @@ class OpenAiCompatibleLlmClient
         }
 
         /** @throws LlmException when [baseUrl] cannot be parsed into a request URL. */
-        private fun chatCompletionsUrl(baseUrl: String): Url =
-            try {
-                Url("${baseUrl.trimEnd('/')}/chat/completions")
+        private fun chatCompletionsUrl(baseUrl: String): Url {
+            val raw = "${baseUrl.trimEnd('/')}/chat/completions"
+            return try {
+                Url(URI(raw).toString())
+            } catch (e: URISyntaxException) {
+                throw LlmException("Invalid LLM endpoint URL: ${e.message}", e)
             } catch (e: URLParserException) {
                 throw LlmException("Invalid LLM endpoint URL: ${e.message}", e)
             }
+        }
 
         /** Maps request failures to user-presentable [LlmException]s; JVM [Error]s are rethrown. */
         private fun toLlmException(error: Throwable): LlmException =
             when (error) {
-                is Error -> throw error
-                is LlmException -> error
+                is Error -> {
+                    throw error
+                }
+
+                is LlmException -> {
+                    error
+                }
+
                 is IOException -> {
                     Logger.w(TAG, "LLM request failed", error)
                     LlmException("Cannot reach the LLM endpoint: ${error.message}", error)
                 }
+
                 else -> {
                     Logger.w(TAG, "LLM request failed unexpectedly", error)
                     LlmException("LLM request failed: ${error.message}", error)

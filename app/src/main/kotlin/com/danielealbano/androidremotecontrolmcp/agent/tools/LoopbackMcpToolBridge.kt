@@ -132,9 +132,10 @@ class LoopbackMcpToolBridge
         ): AgentToolResult =
             runCatching {
                 val params = CallToolRequestParams(name = current.toolNamePrefix + toolName, arguments = arguments)
-                current.runInSession {
-                    current.client.callTool(CallToolRequest(params), RequestOptions(timeout = toolRequestTimeout))
-                }.toAgentResult()
+                current
+                    .runInSession {
+                        current.client.callTool(CallToolRequest(params), RequestOptions(timeout = toolRequestTimeout))
+                    }.toAgentResult()
             }.getOrElse { error ->
                 if (error is Error || !currentCoroutineContext().isActive) throw error
                 agentToolError("Tool '$toolName' failed: ${error.message}")

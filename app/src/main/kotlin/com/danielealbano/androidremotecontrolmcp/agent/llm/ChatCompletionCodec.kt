@@ -61,13 +61,20 @@ internal object ChatCompletionCodec {
     /** String content, or the text parts of array content joined by newlines; null when absent or empty. */
     private fun decodeContent(element: JsonElement?): String? =
         when (element) {
-            is JsonPrimitive -> element.contentOrNull?.ifEmpty { null }
-            is JsonArray ->
+            is JsonPrimitive -> {
+                element.contentOrNull?.ifEmpty { null }
+            }
+
+            is JsonArray -> {
                 element
                     .mapNotNull { part -> ((part as? JsonObject)?.get("text") as? JsonPrimitive)?.contentOrNull }
                     .joinToString("\n")
                     .ifEmpty { null }
-            else -> null
+            }
+
+            else -> {
+                null
+            }
         }
 
     private fun decodeToolCalls(calls: JsonArray): List<LlmToolCall> =
@@ -96,9 +103,15 @@ internal object ChatCompletionCodec {
 
     private fun encodeMessage(message: LlmMessage): JsonObject =
         when (message) {
-            is LlmMessage.System -> textMessage("system", message.text)
-            is LlmMessage.User -> encodeUser(message)
-            is LlmMessage.Assistant ->
+            is LlmMessage.System -> {
+                textMessage("system", message.text)
+            }
+
+            is LlmMessage.User -> {
+                encodeUser(message)
+            }
+
+            is LlmMessage.Assistant -> {
                 buildJsonObject {
                     put("role", "assistant")
                     // Strict servers reject null content on assistant messages without tool_calls.
@@ -107,12 +120,15 @@ internal object ChatCompletionCodec {
                         putJsonArray("tool_calls") { message.toolCalls.forEach { add(encodeToolCall(it)) } }
                     }
                 }
-            is LlmMessage.ToolResult ->
+            }
+
+            is LlmMessage.ToolResult -> {
                 buildJsonObject {
                     put("role", "tool")
                     put("tool_call_id", message.toolCallId)
                     put("content", message.text)
                 }
+            }
         }
 
     private fun encodeUser(message: LlmMessage.User): JsonObject {

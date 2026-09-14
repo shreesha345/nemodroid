@@ -216,6 +216,19 @@ private fun logPrivacyModeDiff(
     }
 }
 
+private fun SettingsChangeLogger.logToggle(
+    key: String,
+    oldValue: Boolean,
+    newValue: Boolean,
+    subject: String,
+    onWord: String = "enabled",
+    offWord: String = "disabled",
+) {
+    submit(key, oldValue.toString(), newValue.toString()) { _, n ->
+        "$subject ${if (n.toBoolean()) onWord else offWord}"
+    }
+}
+
 /**
  * [SettingsRepository] implementation backed by Preferences DataStore.
  *
@@ -279,24 +292,11 @@ class SettingsRepositoryImpl
             }
         }
 
-        private fun logToggle(
-            key: String,
-            oldValue: Boolean,
-            newValue: Boolean,
-            subject: String,
-            onWord: String = "enabled",
-            offWord: String = "disabled",
-        ) {
-            settingsChangeLogger.submit(key, oldValue.toString(), newValue.toString()) { _, n ->
-                "$subject ${if (n.toBoolean()) onWord else offWord}"
-            }
-        }
-
         override suspend fun updateOauthEnabled(enabled: Boolean) {
             dataStore.edit { prefs ->
                 val old = prefs[OAUTH_ENABLED_KEY] ?: true
                 prefs[OAUTH_ENABLED_KEY] = enabled
-                logToggle("oauth_enabled", old, enabled, "OAuth")
+                settingsChangeLogger.logToggle("oauth_enabled", old, enabled, "OAuth")
             }
         }
 
@@ -304,7 +304,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[BEARER_TOKEN_ENABLED_KEY] ?: true
                 prefs[BEARER_TOKEN_ENABLED_KEY] = enabled
-                logToggle("bearer_token_enabled", old, enabled, "Bearer token auth")
+                settingsChangeLogger.logToggle("bearer_token_enabled", old, enabled, "Bearer token auth")
                 if (enabled && prefs[BEARER_TOKEN_KEY].isNullOrEmpty()) {
                     val generated = generateTokenString()
                     prefs[BEARER_TOKEN_KEY] = generated
@@ -381,7 +381,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[AUTO_START_KEY] ?: false
                 prefs[AUTO_START_KEY] = enabled
-                logToggle("auto_start", old, enabled, "Auto-start on boot")
+                settingsChangeLogger.logToggle("auto_start", old, enabled, "Auto-start on boot")
             }
         }
 
@@ -389,7 +389,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[HIDE_FROM_RECENTS_KEY] ?: false
                 prefs[HIDE_FROM_RECENTS_KEY] = enabled
-                logToggle("hide_from_recents", old, enabled, "Hide from recents")
+                settingsChangeLogger.logToggle("hide_from_recents", old, enabled, "Hide from recents")
             }
         }
 
@@ -397,7 +397,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[TOOL_CALL_INDICATOR_ENABLED_KEY] ?: true
                 prefs[TOOL_CALL_INDICATOR_ENABLED_KEY] = enabled
-                logToggle("tool_call_indicator", old, enabled, "Tool-call indicator")
+                settingsChangeLogger.logToggle("tool_call_indicator", old, enabled, "Tool-call indicator")
             }
         }
 
@@ -412,7 +412,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[HTTPS_ENABLED_KEY] ?: false
                 prefs[HTTPS_ENABLED_KEY] = enabled
-                logToggle("https_enabled", old, enabled, "HTTPS")
+                settingsChangeLogger.logToggle("https_enabled", old, enabled, "HTTPS")
             }
         }
 
@@ -440,7 +440,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[TUNNEL_ENABLED_KEY] ?: false
                 prefs[TUNNEL_ENABLED_KEY] = enabled
-                logToggle("tunnel_enabled", old, enabled, "Remote access tunnel")
+                settingsChangeLogger.logToggle("tunnel_enabled", old, enabled, "Remote access tunnel")
             }
         }
 
@@ -511,7 +511,14 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[ALLOW_HTTP_DOWNLOADS_KEY] ?: false
                 prefs[ALLOW_HTTP_DOWNLOADS_KEY] = enabled
-                logToggle("allow_http_downloads", old, enabled, "HTTP downloads", "allowed", "disallowed")
+                settingsChangeLogger.logToggle(
+                    "allow_http_downloads",
+                    old,
+                    enabled,
+                    "HTTP downloads",
+                    "allowed",
+                    "disallowed",
+                )
             }
         }
 
@@ -519,7 +526,7 @@ class SettingsRepositoryImpl
             dataStore.edit { prefs ->
                 val old = prefs[ALLOW_UNVERIFIED_HTTPS_KEY] ?: false
                 prefs[ALLOW_UNVERIFIED_HTTPS_KEY] = enabled
-                logToggle(
+                settingsChangeLogger.logToggle(
                     "allow_unverified_https_certs",
                     old,
                     enabled,

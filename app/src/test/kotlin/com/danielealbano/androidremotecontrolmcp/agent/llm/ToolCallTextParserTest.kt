@@ -129,7 +129,12 @@ class ToolCallTextParserTest {
         val call = ToolCallTextParser.parse(text, tools).single()
 
         assertEquals("tap", call.name)
-        assertEquals(1, call.arguments.getValue("x").jsonPrimitive.int)
+        assertEquals(
+            1,
+            call.arguments
+                .getValue("x")
+                .jsonPrimitive.int,
+        )
         assertTrue(call.arguments.getValue("y") is JsonObject)
     }
 
@@ -169,7 +174,12 @@ class ToolCallTextParserTest {
     fun `accepts parameters alias`() {
         val call = ToolCallTextParser.parse("""{"name":"tap","parameters":{"x":3}}""", tools).single()
 
-        assertEquals(3, call.arguments.getValue("x").jsonPrimitive.int)
+        assertEquals(
+            3,
+            call.arguments
+                .getValue("x")
+                .jsonPrimitive.int,
+        )
     }
 
     @Test

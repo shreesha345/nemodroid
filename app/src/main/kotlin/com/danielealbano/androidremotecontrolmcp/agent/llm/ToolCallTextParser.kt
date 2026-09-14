@@ -3,9 +3,12 @@ package com.danielealbano.androidremotecontrolmcp.agent.llm
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 /**
  * Extracts tool calls written into a text reply: XML (`<tool_call><function=name><parameter=p>value</parameter>
@@ -80,8 +83,15 @@ internal object ToolCallTextParser {
         if (schemaType == null || schemaType == STRING_TYPE) {
             JsonPrimitive(raw)
         } else {
-            runCatching { json.parseToJsonElement(raw.trim()) }.getOrNull() ?: JsonPrimitive(raw)
+            runCatching { json.parseToJsonElement(raw.trim()) }
+                .getOrNull()
+                ?.takeUnless { it.isBareWord() }
+                ?: JsonPrimitive(raw)
         }
+
+    /** An unquoted token that is not a number, boolean, or null (e.g. `abc`), which the JSON reader accepts. */
+    private fun JsonElement.isBareWord(): Boolean =
+        this is JsonPrimitive && this !is JsonNull && !isString && booleanOrNull == null && doubleOrNull == null
 
     private fun parseJson(body: String): List<Pair<String, JsonObject>> =
         when (val element = runCatching { json.parseToJsonElement(body) }.getOrNull()) {

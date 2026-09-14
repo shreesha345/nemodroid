@@ -25,6 +25,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
@@ -160,13 +161,23 @@ class LoopbackMcpToolBridgeIntegrationTest {
             val result = scenario.bridge.open()
 
             assertTrue(result.isFailure)
-            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("get_screen_state"))
+            assertTrue(
+                result
+                    .exceptionOrNull()
+                    ?.message
+                    .orEmpty()
+                    .contains("get_screen_state"),
+            )
         }
 
     @Test
     fun `open omits disabled profile tools`() =
         runScenario(perms = WAIT_FOR_IDLE_DISABLED) { scenario ->
-            val names = scenario.bridge.open().getOrThrow().map { it.name }
+            val names =
+                scenario.bridge
+                    .open()
+                    .getOrThrow()
+                    .map { it.name }
 
             assertFalse(AgentToolProfile.WAIT_FOR_IDLE in names)
             assertTrue(AgentToolProfile.GET_SCREEN_STATE in names)
@@ -259,17 +270,19 @@ class LoopbackMcpToolBridgeIntegrationTest {
             }
             scenario.bridge.open().getOrThrow()
             var result: AgentToolResult? = null
-            val call = launch { result = scenario.bridge.call("tap", tapArguments) }
-            withTimeout(RELEASE_TIMEOUT_MS) { tapStarted.await() }
-            val startedAt = System.nanoTime()
+            coroutineScope {
+                val call = launch { result = scenario.bridge.call("tap", tapArguments) }
+                withTimeout(RELEASE_TIMEOUT_MS) { tapStarted.await() }
+                val startedAt = System.nanoTime()
 
-            scenario.bridge.close()
-            withTimeout(RELEASE_TIMEOUT_MS) { call.join() }
+                scenario.bridge.close()
+                withTimeout(RELEASE_TIMEOUT_MS) { call.join() }
 
-            assertTrue(System.nanoTime() - startedAt < PROMPT_NANOS)
-            assertNotNull(result)
-            assertTrue(result?.isError == true)
-            assertFalse(call.isCancelled)
+                assertTrue(System.nanoTime() - startedAt < PROMPT_NANOS)
+                assertNotNull(result)
+                assertTrue(result?.isError == true)
+                assertFalse(call.isCancelled)
+            }
         }
 
     @Test
@@ -285,14 +298,16 @@ class LoopbackMcpToolBridgeIntegrationTest {
                 Result.success(Unit)
             }
             scenario.bridge.open().getOrThrow()
-            val call = launch { scenario.bridge.call("tap", tapArguments) }
-            withTimeout(RELEASE_TIMEOUT_MS) { tapStarted.await() }
+            coroutineScope {
+                val call = launch { scenario.bridge.call("tap", tapArguments) }
+                withTimeout(RELEASE_TIMEOUT_MS) { tapStarted.await() }
 
-            call.cancelAndJoin()
-            val next = scenario.bridge.call("tap", tapArguments)
+                call.cancelAndJoin()
+                val next = scenario.bridge.call("tap", tapArguments)
 
-            assertTrue(call.isCancelled)
-            assertFalse(next.isError, next.text)
+                assertTrue(call.isCancelled)
+                assertFalse(next.isError, next.text)
+            }
             scenario.bridge.close()
         }
 

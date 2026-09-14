@@ -57,5 +57,10 @@ internal object AgentPrompts {
         screen: String,
         hint: String?,
     ): String =
-        listOfNotNull("Task: $goal", hint, "Step $step of $maxSteps. Current screen:", screen).joinToString("\n\n")
+        listOfNotNull(
+            "Task: $goal",
+            hint,
+            "Step $step of $maxSteps. Current screen:",
+            screen,
+        ).joinToString("\n\n")
 }

@@ -34,7 +34,10 @@ class AgentRunContextTest {
     ): LlmToolCall = LlmToolCall(id = id, name = "tap", arguments = buildJsonObject { put("x", x) })
 
     private fun lastUserText(context: AgentRunContext): String =
-        context.messages.filterIsInstance<LlmMessage.User>().last().text
+        context.messages
+            .filterIsInstance<LlmMessage.User>()
+            .last()
+            .text
 
     @Test
     fun `truncateAtLine returns short text unchanged`() {
@@ -45,7 +48,7 @@ class AgentRunContextTest {
     fun `truncateAtLine cuts at line boundary and appends marker`() {
         val maxChars = marker.length + 1 + 7
 
-        val result = truncateAtLine("aaaa\nbbbbbbb\ncccc", maxChars)
+        val result = truncateAtLine("aaaa\nbbbbbbb\n" + "c".repeat(200), maxChars)
 
         assertEquals("aaaa\n$marker", result)
         assertTrue(result.length <= maxChars)
@@ -54,7 +57,7 @@ class AgentRunContextTest {
     @Test
     fun `truncateAtLine keeps trailing pagination note`() {
         val note = "note:more nodes available"
-        val text = "l1\nl2\nl3\n" + "x".repeat(50) + "\n" + note
+        val text = "l1\nl2\nl3\n" + "x".repeat(200) + "\n" + note
         val maxChars = marker.length + 1 + note.length + 1 + 5
 
         val result = truncateAtLine(text, maxChars)
@@ -67,7 +70,7 @@ class AgentRunContextTest {
     fun `truncateAtLine keeps line ending exactly at budget`() {
         val maxChars = marker.length + 1 + 10
 
-        val result = truncateAtLine("aaaa\nbbbbb\ncccccc", maxChars)
+        val result = truncateAtLine("aaaa\nbbbbb\n" + "c".repeat(200), maxChars)
 
         assertEquals("aaaa\nbbbbb\n$marker", result)
     }
@@ -172,7 +175,11 @@ class AgentRunContextTest {
         val toolResult = context.messages.filterIsInstance<LlmMessage.ToolResult>().first()
         assertTrue(toolResult.text.length <= AgentRunContext.MAX_TOOL_RESULT_CHARS)
         assertTrue(toolResult.text.endsWith(marker))
-        assertTrue(context.steps.first().resultPreview.length <= AgentRunContext.MAX_PREVIEW_CHARS)
+        assertTrue(
+            context.steps
+                .first()
+                .resultPreview.length <= AgentRunContext.MAX_PREVIEW_CHARS,
+        )
         assertEquals(listOf(1, 2), context.steps.map { it.index })
     }
 
@@ -186,7 +193,10 @@ class AgentRunContextTest {
 
         assertEquals(
             AgentPrompts.PAGE_SHOWN_AS_OBSERVATION,
-            context.messages.filterIsInstance<LlmMessage.ToolResult>().single().text,
+            context.messages
+                .filterIsInstance<LlmMessage.ToolResult>()
+                .single()
+                .text,
         )
         assertEquals(page, context.takePendingScreen())
         assertNull(context.takePendingScreen())
@@ -201,7 +211,13 @@ class AgentRunContextTest {
         context.recordAction(call, null, failure)
 
         assertNull(context.takePendingScreen())
-        assertEquals("snapshot gone", context.messages.filterIsInstance<LlmMessage.ToolResult>().single().text)
+        assertEquals(
+            "snapshot gone",
+            context.messages
+                .filterIsInstance<LlmMessage.ToolResult>()
+                .single()
+                .text,
+        )
     }
 
     @Test

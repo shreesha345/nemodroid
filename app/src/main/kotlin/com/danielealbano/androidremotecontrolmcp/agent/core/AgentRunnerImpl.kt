@@ -134,8 +134,14 @@ class AgentRunnerImpl
         ): AgentRunState? {
             val call = response.toolCalls.firstOrNull()
             return when {
-                call == null -> context.onMissingToolCall(response.text)
-                call.name == AgentPrompts.FINISH_TOOL -> context.finished(call, response.text)
+                call == null -> {
+                    context.onMissingToolCall(response.text)
+                }
+
+                call.name == AgentPrompts.FINISH_TOOL -> {
+                    context.finished(call, response.text)
+                }
+
                 else -> {
                     act(context, call, response.text)
                     null

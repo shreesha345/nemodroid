@@ -38,7 +38,13 @@ class ChatCompletionCodecTest {
         assertEquals("m", request.getValue("model").jsonPrimitive.content)
         assertEquals(0.2, request.getValue("temperature").jsonPrimitive.double)
         assertEquals(1, messagesOf(request).size)
-        assertEquals("system", messagesOf(request)[0].jsonObject.getValue("role").jsonPrimitive.content)
+        assertEquals(
+            "system",
+            messagesOf(request)[0]
+                .jsonObject
+                .getValue("role")
+                .jsonPrimitive.content,
+        )
     }
 
     @Test
@@ -64,15 +70,40 @@ class ChatCompletionCodecTest {
     fun `encodeRequest encodes user image as text and image_url parts`() {
         val message = LlmMessage.User("screen", LlmImage(base64 = "AAA", mimeType = "image/jpeg"))
 
-        val content = messagesOf(ChatCompletionCodec.encodeRequest("m", listOf(message), emptyList()))[0]
-            .jsonObject
-            .getValue("content")
-            .jsonArray
+        val content =
+            messagesOf(ChatCompletionCodec.encodeRequest("m", listOf(message), emptyList()))[0]
+                .jsonObject
+                .getValue("content")
+                .jsonArray
 
-        assertEquals("text", content[0].jsonObject.getValue("type").jsonPrimitive.content)
-        assertEquals("screen", content[0].jsonObject.getValue("text").jsonPrimitive.content)
-        assertEquals("image_url", content[1].jsonObject.getValue("type").jsonPrimitive.content)
-        val url = content[1].jsonObject.getValue("image_url").jsonObject.getValue("url").jsonPrimitive.content
+        assertEquals(
+            "text",
+            content[0]
+                .jsonObject
+                .getValue("type")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "screen",
+            content[0]
+                .jsonObject
+                .getValue("text")
+                .jsonPrimitive.content,
+        )
+        assertEquals(
+            "image_url",
+            content[1]
+                .jsonObject
+                .getValue("type")
+                .jsonPrimitive.content,
+        )
+        val url =
+            content[1]
+                .jsonObject
+                .getValue("image_url")
+                .jsonObject
+                .getValue("url")
+                .jsonPrimitive.content
         assertEquals("data:image/jpeg;base64,AAA", url)
     }
 
@@ -94,7 +125,12 @@ class ChatCompletionCodecTest {
 
         val call = encoded.getValue("tool_calls").jsonArray[0].jsonObject
         assertEquals("c1", call.getValue("id").jsonPrimitive.content)
-        val encodedArguments = call.getValue("function").jsonObject.getValue("arguments").jsonPrimitive
+        val encodedArguments =
+            call
+                .getValue("function")
+                .jsonObject
+                .getValue("arguments")
+                .jsonPrimitive
         assertTrue(encodedArguments.isString)
         assertEquals(arguments, Json.parseToJsonElement(encodedArguments.content))
     }
@@ -106,7 +142,14 @@ class ChatCompletionCodecTest {
 
         val encoded = messagesOf(ChatCompletionCodec.encodeRequest("m", listOf(withCalls, withoutCalls), emptyList()))
 
-        encoded.forEach { assertEquals("", it.jsonObject.getValue("content").jsonPrimitive.content) }
+        encoded.forEach {
+            assertEquals(
+                "",
+                it.jsonObject
+                    .getValue("content")
+                    .jsonPrimitive.content,
+            )
+        }
         assertFalse(encoded[1].jsonObject.containsKey("tool_calls"))
     }
 
@@ -161,7 +204,13 @@ class ChatCompletionCodecTest {
         val call = ChatCompletionCodec.decodeResponse(body).toolCalls.single()
         assertEquals("c1", call.id)
         assertEquals("tap", call.name)
-        assertEquals(10, call.arguments.getValue("x").jsonPrimitive.content.toInt())
+        assertEquals(
+            10,
+            call.arguments
+                .getValue("x")
+                .jsonPrimitive.content
+                .toInt(),
+        )
     }
 
     @Test
