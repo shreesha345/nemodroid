@@ -29,11 +29,12 @@ This document is the source of truth for the Android Remote Control MCP project.
 
 ### Overview
 
-The application is a **service-based Android app** that exposes an MCP server over HTTP (with optional HTTPS). It consists of three main components:
+The application is a **service-based Android app** that exposes an MCP server over HTTP (with optional HTTPS). It consists of four main components:
 
 1. **AccessibilityService** — Provides UI introspection and action execution (including screenshot capture via `takeScreenshot()` API on Android 11+)
 2. **McpServerService** — Runs the HTTP server implementing MCP protocol
 3. **MainActivity** — UI for configuration and control
+4. **On-Device Agent (core)** — Executes natural-language tasks by calling the app's own MCP tools with an OpenAI-compatible LLM
 
 ### Component Details
 
@@ -59,6 +60,15 @@ The application is a **service-based Android app** that exposes an MCP server ov
 - **Purpose**: Configuration and control interface
 - **Features**: Server status display (running/stopped), start/stop MCP server toggle, configuration settings (binding address, port, bearer token, auto-start on boot, HTTPS toggle and certificate management, remote access tunnel toggle and provider selection), quick links (enable accessibility service), connection info display (with tunnel public URL when connected), server logs viewer (recent server events including MCP tool calls and tunnel events)
 - **Implementation**: Material Design 3 with dark mode support, Jetpack Compose, ViewModel for state management, observes service status via Flow/StateFlow
+
+#### 4. On-Device Agent (core)
+
+- **Type**: Hilt singletons in `agent/` (no Android component; hosting service and UI arrive in later plans)
+- **Purpose**: Execute natural-language tasks with an OpenAI-compatible vision LLM (reference model: Nemotron 3 Nano Omni on llama.cpp `llama-server --jinja`)
+- **Loop** (`AgentRunner`): observe (`get_screen_state`; retried without screenshot if capture fails; a page the model fetched is reused as the observation) → one LLM tool call → execute → `wait_for_idle` (fixed 1.5 s pause when that tool is disabled). Ends `Finished` on `finish`; `Failed` on the first LLM, screen-read, settings, or tool-session error, after 3 consecutive replies without a tool call, or at the step limit; `Cancelled` when its coroutine is cancelled. Screen text is truncated at line boundaries (pagination note kept); only the latest observation keeps screenshot and screen text; tool results and thoughts older than 3 steps are replaced by placeholders in batches.
+- **Tools** (`AgentToolBridge`): MCP Kotlin SDK `Client` over loopback `http://127.0.0.1:<port>/mcp`, restricted to the enabled tools of `AgentToolProfile`. Requires the MCP server running on HTTP with a non-empty bearer token (or both auth methods disabled) and `get_screen_state` enabled. Tool permissions, Privacy Mode, untrusted-content warnings, logging, and the tool-call indicator apply unchanged. Closing the session aborts in-flight tool calls.
+- **LLM** (`LlmClient`): `POST {baseUrl}/chat/completions`; structured `tool_calls`, with a schema-aware fallback parser for calls written as text (Nemotron/Qwen3-Coder XML or JSON). llama.cpp needs `--jinja` to return structured `tool_calls`.
+- **Settings**: `AgentSettings` slice of `SettingsRepository` (`AgentSettingsImpl`)
 
 ### Inter-Service Communication
 
@@ -99,7 +109,7 @@ The typical startup flow: User opens app → enables Accessibility Service in An
 - **DataStore**: Settings persistence (modern replacement for SharedPreferences)
 - **Hilt**: Dependency injection (Dagger-based, official Android DI)
 - **Ktor Server**: HTTP/HTTPS server (Kotlin-native, async, coroutine-based)
-- **MCP Kotlin SDK**: Official Model Context Protocol implementation v0.15.0 (from Anthropic/ModelContextProtocol), including `Server`, the stateless Streamable HTTP transport (`mcpStatelessStreamableHttp`), and type-safe tool registration via `Server.addTool()`
+- **MCP Kotlin SDK**: Official Model Context Protocol implementation v0.15.0 (from Anthropic/ModelContextProtocol), including `Server`, the stateless Streamable HTTP transport (`mcpStatelessStreamableHttp`), and type-safe tool registration via `Server.addTool()`, and `Client` + `StreamableHttpClientTransport` for the on-device agent's loopback tool bridge
 - **SLF4J-Android**: Routes MCP SDK internal SLF4J logs to `android.util.Log`
 - **Kotlinx Serialization**: JSON serialization for MCP protocol
 - **Kotlinx Coroutines**: Async/concurrency
@@ -114,7 +124,7 @@ The typical startup flow: User opens app → enables Accessibility Service in An
 - **Turbine**: Flow testing library
 - **Compose UI Test**: Jetpack Compose testing
 - **Testcontainers Kotlin**: Container-based E2E tests
-- **MCP Kotlin SDK Client**: SDK `Client` + `StreamableHttpClientTransport` for E2E tests
+- **MCP Kotlin SDK Client**: SDK `Client` + `StreamableHttpClientTransport` for E2E tests and the loopback tool bridge integration tests
 
 ### Build Tools
 
@@ -134,19 +144,23 @@ The typical startup flow: User opens app → enables Accessibility Service in An
   - `services/apps/` — `AppManager.kt`, `AppManagerImpl.kt`
   - `services/camera/` — `CameraProvider.kt`, `CameraProviderImpl.kt`, `ServiceLifecycleOwner.kt`
   - `services/location/` — `LocationProvider.kt`, `LocationProviderImpl.kt`
-  - `services/mcp/` — `McpServerService.kt`, `BootCompletedReceiver.kt`, `AdbConfigHandler.kt`, `AdbConfigReceiver.kt`, `AdbServiceTrampolineActivity.kt`
+  - `services/mcp/` — `McpServerService.kt`, `BootCompletedReceiver.kt`, `AdbConfigHandler.kt`, `AdbConfigReceiver.kt`, `AdbServiceTrampolineActivity.kt`, `McpServerStatusProvider.kt`
   - `services/tunnel/` — `TunnelProvider.kt`, `TunnelManager.kt`, `CloudflareTunnelProvider.kt`, `CloudflaredBinaryResolver.kt`, `AndroidCloudflareBinaryResolver.kt`, `NgrokTunnelProvider.kt`
   - `mcp/` — `McpServer.kt`, `McpStatelessTransport.kt`, `McpToolException.kt`, `CertificateManager.kt`
   - `mcp/tools/` — `McpToolUtils.kt`, `TreeFingerprint.kt`, `ScreenIntrospectionTools.kt`, `TouchActionTools.kt`, `NodeActionTools.kt`, `TextInputTools.kt`, `SystemActionTools.kt`, `GestureTools.kt`, `UtilityTools.kt`, `FileTools.kt`, `AppManagementTools.kt`, `CameraTools.kt`, `LocationTools.kt`
   - `mcp/auth/` — `BearerTokenAuth.kt`
+  - `agent/` — `AgentCoroutines.kt`
+  - `agent/llm/` — `LlmModels.kt`, `LlmClient.kt`, `OpenAiCompatibleLlmClient.kt`, `ChatCompletionCodec.kt`, `ToolCallTextParser.kt`
+  - `agent/tools/` — `AgentToolProfile.kt`, `AgentToolBridge.kt`, `McpToolMapping.kt`, `LoopbackMcpToolBridge.kt`
+  - `agent/core/` — `AgentRunState.kt`, `AgentPrompts.kt`, `AgentRunContext.kt`, `AgentRunner.kt`, `AgentRunnerImpl.kt`
   - `ui/` — `MainActivity.kt`
   - `ui/theme/` — `Theme.kt`, `Color.kt`, `Type.kt`
   - `ui/screens/` — `HomeScreen.kt`
   - `ui/components/` — `ServerStatusCard.kt`, `ConfigurationSection.kt`, `RemoteAccessSection.kt`, `ConnectionInfoCard.kt`, `PermissionsSection.kt`, `ServerLogsSection.kt`, `StorageLocationsSection.kt`
   - `ui/viewmodels/` — `MainViewModel.kt`
-  - `data/repository/` — `SettingsRepository.kt`, `SettingsRepositoryImpl.kt`
-  - `data/model/` — `ServerConfig.kt`, `ServerStatus.kt`, `ServerLogEntry.kt`, `BindingAddress.kt`, `CertificateSource.kt`, `ScreenshotData.kt`, `TunnelProviderType.kt`, `TunnelStatus.kt`, `StorageLocation.kt`, `FileInfo.kt`, `AppInfo.kt`, `AppFilter.kt`, `CameraInfo.kt`, `CameraResolution.kt`, `LocationData.kt`
-  - `di/` — `AppModule.kt`
+  - `data/repository/` — `SettingsRepository.kt`, `SettingsRepositoryImpl.kt`, `AgentSettings.kt`, `AgentSettingsImpl.kt`
+  - `data/model/` — `ServerConfig.kt`, `ServerStatus.kt`, `ServerLogEntry.kt`, `BindingAddress.kt`, `CertificateSource.kt`, `ScreenshotData.kt`, `TunnelProviderType.kt`, `TunnelStatus.kt`, `StorageLocation.kt`, `FileInfo.kt`, `AppInfo.kt`, `AppFilter.kt`, `CameraInfo.kt`, `CameraResolution.kt`, `LocationData.kt`, `AgentConfig.kt`
+  - `di/` — `AppModule.kt`, `AgentModule.kt`
   - `utils/` — `NetworkUtils.kt`, `PermissionUtils.kt`, `Logger.kt`, `RecentsUtils.kt`
 - `app/src/main/res/` — `values/strings.xml`, `values/themes.xml`, `drawable/`, `mipmap/`, `xml/accessibility_service_config.xml`
 - `app/src/main/AndroidManifest.xml`
@@ -686,6 +700,7 @@ MCP tools return data originating from the Android device (UI element text, cont
 - Pure action confirmations (tap, click, swipe, etc.) that return only server-generated text are exempt
 - New tools returning device content MUST use the `untrusted*` helpers
 - **Limitation**: Image content (screenshots, camera photos) cannot carry an inline text warning. The warning is added as a separate `TextContent` before the `ImageContent`, but a multimodal LLM processing the image directly could still be influenced by adversarial text rendered on screen. This is an inherent limitation of the MCP protocol.
+- **On-device agent (accepted risk)**: the agent keeps its full tool profile, including `open_uri`, by explicit user decision. Injected screen text could steer it into navigating to attacker-chosen URLs or apps; the system prompt forbids following on-screen instructions. The hosting service and UI (Plan 67) MUST provide an always-available stop/kill control (notification action and in-app button) that cancels a running task immediately.
 
 ---
 
@@ -718,6 +733,16 @@ MCP tools return data originating from the Android device (UI element text, cont
 - **Swipe Duration**: 300ms
 - **Gesture Duration**: 300ms
 - **Scroll Amount**: "medium" (50% of screen dimension)
+
+### Agent Defaults
+
+- **LLM Base URL**: Empty (agent disabled until configured). `http` endpoints are accepted; the settings UI (Plan 67) must warn when a non-loopback endpoint uses `http`, since the API key and screenshots travel unencrypted. URLs with embedded credentials are rejected.
+- **LLM API Key**: Empty (no Authorization header)
+- **LLM Model**: `nemotron-3-nano-omni`
+- **Send Screenshot**: Enabled (observation retried without screenshot when capture fails)
+- **Max Steps**: 30 (range 1-100)
+- **LLM Request Timeout**: 180 seconds; **Tool Request Timeout**: 90 seconds (HTTP and MCP request)
+- **Context Budget**: screen text ≤16,000 characters and only in the latest observation; other tool results ≤4,000 characters; thoughts ≤1,000 characters; tool results and thoughts beyond the last 3 steps compacted in batches. Serve the model with at least a 32,768-token context (`-c 32768` for llama.cpp)
 
 ### Camera Defaults
 

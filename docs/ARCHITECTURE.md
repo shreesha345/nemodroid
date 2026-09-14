@@ -145,6 +145,8 @@ graph TB
 | MainViewModel         | `viewModelScope`          | ViewModel lifecycle          |
 | McpServerService      | Custom `CoroutineScope`   | Service onCreate to onDestroy|
 | McpAccessibilityService| Custom `CoroutineScope`  | Service lifecycle            |
+| AgentRunnerImpl       | Caller's coroutine (hosting service from Plan 67) | One run          |
+| LoopbackMcpToolBridge session | Custom `CoroutineScope(SupervisorJob())` | Tool session; cancelled by `close()` |
 
 ### Thread Safety
 
@@ -152,6 +154,8 @@ graph TB
 - `McpAccessibilityService.instance`: `@Volatile` singleton
 - `McpNotificationListenerService.instance`: `@Volatile` singleton
 - `McpServer.running`: `AtomicBoolean`
+- `AgentRunnerImpl.active`: `AtomicBoolean` (one run at a time)
+- `LoopbackMcpToolBridge.session`: guarded by a coroutine `Mutex`; tool calls run outside the lock in the session scope
 - Accessibility node access: Must be on main thread (Android requirement)
 
 ---
@@ -185,6 +189,18 @@ sequenceDiagram
     SDK-->>Ktor: JSON-RPC response via transport
     Ktor-->>Client: HTTP 200 + JSON body
 ```
+
+---
+
+## On-Device Agent (Core)
+
+Request path for one agent step (no new transport — the agent is an MCP client of this app):
+
+1. `AgentRunnerImpl` → `AgentToolBridge.call("get_screen_state")` → loopback `POST /mcp` (with the bearer token when bearer auth is enabled) → normal MCP request path (see "Data Flow: MCP Request"). A failed screenshot capture is retried with nodes only; a page the model fetched in the previous step is reused instead.
+2. `AgentRunnerImpl` → `LlmClient.complete()` on `Dispatchers.IO` → remote OpenAI-compatible endpoint.
+3. The first returned tool call is executed through the bridge; after a successful action other than `get_screen_state`, `wait_for_idle` runs (or a 1.5 s pause when that tool is disabled).
+
+The tool session is closed in `NonCancellable` context when a run ends; closing cancels the session scope, aborting in-flight tool calls. Run bookkeeping (`AgentRunContext`) is confined to the running coroutine. Cancelling the run's coroutine stops it at the next suspension point (LLM request, tool call, or settle delay).
 
 ---
 
